@@ -1,0 +1,19 @@
+<resources>
+
+    <!-- Base application theme. -->
+    <style name="AppTheme" parent="Theme.AppCompat">
+        <!-- Customize your theme here. -->
+    </style>
+
+    <style name="ImageViewItem">
+        <item name="android:layout_height">?android:attr/listPreferredItemHeight</item>
+        <item name="android:layout_width">?android:attr/listPreferredItemHeight</item>
+        <item name="android:layout_margin">5dp</item>
+    </style>
+
+    <style name="TextViewItem">
+        <item name="android:textSize">20sp</item>
+        <item name="android:paddingLeft">10dp</item>
+    </style>
+
+</resources>
