@@ -5,9 +5,9 @@ package de.boe_dev.spotifystreamer;
  */
 public class TopTrackModel {
 
-    private String id, imageUrl, name, album;
+    private String id, imageUrl, name, album, previewUrl;
 
-    public TopTrackModel(String id, String imageUrl, String name, String album) {
+    public TopTrackModel(String id, String imageUrl, String name, String album, String previewUrl) {
         this.id = id;
         this.imageUrl = imageUrl;
         this.name = name;
@@ -28,5 +28,9 @@ public class TopTrackModel {
 
     public String getAlbum() {
         return album;
+    }
+
+    public String getPreviewUrl() {
+        return previewUrl;
     }
 }

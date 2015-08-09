@@ -3,7 +3,8 @@
     android:orientation="horizontal"
     android:id="@+id/layout_tracks"
     android:layout_width="match_parent"
-    android:layout_height="?android:attr/listPreferredItemHeight">
+    android:layout_height="?android:attr/listPreferredItemHeight"
+    android:background="@drawable/touch_selector">
 
     <ImageView
         android:id="@+id/imageview_album_cover"

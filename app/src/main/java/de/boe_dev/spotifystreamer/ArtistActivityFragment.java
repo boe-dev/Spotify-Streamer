@@ -1,6 +1,7 @@
 package de.boe_dev.spotifystreamer;
 
 import android.content.Intent;
+import android.graphics.Color;
 import android.os.AsyncTask;
 import android.support.v4.app.Fragment;
 import android.os.Bundle;
@@ -18,6 +19,8 @@ import android.widget.Toast;
 
 import java.util.ArrayList;
 
+import javax.security.auth.callback.Callback;
+
 import de.boe_dev.spotifystreamer.functions.NetworkFunctions;
 import kaaes.spotify.webapi.android.SpotifyApi;
 import kaaes.spotify.webapi.android.SpotifyService;
@@ -29,7 +32,9 @@ import kaaes.spotify.webapi.android.models.ArtistsPager;
 public class ArtistActivityFragment extends Fragment {
 
     private static final String ARTIST = "artistName";
+    private static final String SELECTED_KEY = "selected_position";
     private Toast mAppToast;
+    private int mPosition = ListView.INVALID_POSITION;
 
     private static ListView artistListView;
     private EditText searchArtistEditText;
@@ -69,6 +74,7 @@ public class ArtistActivityFragment extends Fragment {
             errorMessage(R.string.no_connection);
         } else {
             if (savedInstanceState != null) {
+                mPosition = savedInstanceState.getInt(SELECTED_KEY);
                 new searchArtistIdTask().execute(savedInstanceState.getString(ARTIST));
                 Log.d(ARTIST,"" + savedInstanceState.getString(ARTIST));
             }
@@ -96,18 +102,18 @@ public class ArtistActivityFragment extends Fragment {
         protected void onPostExecute(ArtistsPager artistsPager) {
             super.onPostExecute(artistsPager);
 
-            ArrayList<ArtistModel> artistIdArrayAdapter = new ArrayList<ArtistModel>();
+            ArrayList<ArtistModel> artistIdArrayAdapter = new ArrayList<>();
 
             if (artistsPager.artists.items.size() >= 1) {
 
                 for (int i = 0; i < artistsPager.artists.items.size(); i++) {
 
                     if (artistsPager.artists.items.get(i).images.size() >= 1) {
-                        artistIdArrayAdapter.add(new ArtistModel(artistsPager.artists.items.get(i).id.toString(),
-                                artistsPager.artists.items.get(i).images.get(0).url.toString(),
+                        artistIdArrayAdapter.add(new ArtistModel(artistsPager.artists.items.get(i).id,
+                                artistsPager.artists.items.get(i).images.get(0).url,
                                 artistsPager.artists.items.get(i).name ));
                     } else {
-                        artistIdArrayAdapter.add(new ArtistModel(artistsPager.artists.items.get(i).id.toString(),
+                        artistIdArrayAdapter.add(new ArtistModel(artistsPager.artists.items.get(i).id,
                                 "",
                                 artistsPager.artists.items.get(i).name ));
                     }
@@ -115,12 +121,27 @@ public class ArtistActivityFragment extends Fragment {
 
                 final ArrayAdapter<ArtistModel> arrayAdapter = new ArtistArrayAdapter(getActivity(), artistIdArrayAdapter);
                 artistListView.setAdapter(arrayAdapter);
+                if (mPosition != ListView.INVALID_POSITION) {
+                    artistListView.setSelection(mPosition);
+                }
+
                 artistListView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
                     @Override
                     public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-                        Intent title = new Intent(getActivity(), TopTrackActivity.class);
-                        title.putExtra("artistId", arrayAdapter.getItem(position).getId());
-                        getActivity().startActivity(title);
+                        mPosition = position;
+                        if (getActivity().findViewById(R.id.top_track_container) != null) {
+                            Bundle args = new Bundle();
+                            args.putString("artistId", arrayAdapter.getItem(position).getId());
+                            TopTrackFragment fragment = new TopTrackFragment();
+                            fragment.setArguments(args);
+                            getActivity().getSupportFragmentManager().beginTransaction()
+                                    .replace(R.id.top_track_container, fragment, "DFTAG")
+                                    .commit();
+                        } else {
+                            Intent title = new Intent(getActivity(), TopTrackActivity.class);
+                            title.putExtra("artistId", arrayAdapter.getItem(position).getId());
+                            getActivity().startActivity(title);
+                        }
                     }
                 });
 
@@ -141,12 +162,16 @@ public class ArtistActivityFragment extends Fragment {
     public void onSaveInstanceState(Bundle outState) {
         super.onSaveInstanceState(outState);
         outState.putString(ARTIST, searchArtistEditText.getText().toString());
+        if(mPosition != ListView.INVALID_POSITION) {
+            outState.putInt(SELECTED_KEY, mPosition);
+        }
+
     }
 
     private void errorMessage(int errorRes) {
-        ArrayList<String> cancelledMessage = new ArrayList<String>();
+        ArrayList<String> cancelledMessage = new ArrayList<>();
         cancelledMessage.add(getString(errorRes));
-        ArrayAdapter<String> arrayAdapter = new ArrayAdapter<String>(getActivity(), R.layout.list_error_message, R.id.list_item_artist_textview, cancelledMessage);
+        ArrayAdapter<String> arrayAdapter = new ArrayAdapter<>(getActivity(), R.layout.list_error_message, R.id.list_item_artist_textview, cancelledMessage);
         artistListView.setAdapter(arrayAdapter);
         if (mAppToast != null) {
             mAppToast.cancel();
