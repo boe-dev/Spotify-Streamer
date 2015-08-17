@@ -1,20 +1,25 @@
 package de.boe_dev.spotifystreamer;
 
+import android.content.Intent;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.os.Parcelable;
 import android.support.v4.app.Fragment;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.ListView;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 
+import de.boe_dev.spotifystreamer.functions.ItemDetailsWrapper;
 import kaaes.spotify.webapi.android.SpotifyApi;
 import kaaes.spotify.webapi.android.SpotifyService;
 import kaaes.spotify.webapi.android.models.Tracks;
@@ -68,13 +73,14 @@ public class TopTrackFragment extends Fragment {
         protected void onPostExecute(Tracks tracks) {
             super.onPostExecute(tracks);
 
-            ArrayList<TopTrackModel> trackArrayAdapter = new ArrayList<>();
+            final ArrayList<TopTrackModel> trackArrayAdapter = new ArrayList<>();
 
             for (int i = 0; i < tracks.tracks.size(); i++) {
 
                 if (tracks.tracks.get(i).album.images.size() >= 1) {
                     trackArrayAdapter.add(new TopTrackModel(
                             tracks.tracks.get(i).id,
+                            tracks.tracks.get(i).artists.get(0).name,
                             tracks.tracks.get(i).album.images.get(0).url,
                             tracks.tracks.get(i).name,
                             tracks.tracks.get(i).album.name,
@@ -82,8 +88,24 @@ public class TopTrackFragment extends Fragment {
                 }
             }
 
-            ArrayAdapter<TopTrackModel> arrayAdapter = new TopTrackArrayAdapter(getActivity(), trackArrayAdapter);
+            final ArrayAdapter<TopTrackModel> arrayAdapter = new TopTrackArrayAdapter(getActivity(), trackArrayAdapter);
             trackListView.setAdapter(arrayAdapter);
+            trackListView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+                @Override
+                public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+                    Log.d("TopTrackFragment", arrayAdapter.getItem(position).getPreviewUrl());
+                    Intent player = new Intent(getActivity(), PlayerActivity.class);
+                    player.putExtra("artist",       arrayAdapter.getItem(position).getArtist());
+                    player.putExtra("name",         arrayAdapter.getItem(position).getName());
+                    player.putExtra("imageUrl",     arrayAdapter.getItem(position).getImageUrl());
+                    player.putExtra("album",        arrayAdapter.getItem(position).getAlbum());
+                    player.putExtra("previewUrl",   arrayAdapter.getItem(position).getPreviewUrl());
+                    ItemDetailsWrapper wrapper = new ItemDetailsWrapper(trackArrayAdapter);
+                    player.putExtra("list", wrapper);
+                    player.putExtra("pos", position);
+                    startActivity(player);
+                }
+            });
 
         }
     }

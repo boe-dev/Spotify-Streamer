@@ -1,46 +1,55 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:orientation="vertical" android:layout_width="match_parent"
+    android:orientation="vertical" android:layout_width="fill_parent"
     android:layout_height="match_parent"
     android:gravity="center_horizontal">
 
     <TextView
+        android:id="@+id/media_player_artist"
         android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Artist" />
-
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Album" />
-
-    <ImageView
-        android:layout_width="fill_parent"
         android:layout_height="wrap_content" />
 
     <TextView
+        android:id="@+id/media_player_album"
         android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Track" />
+        android:layout_height="wrap_content" />
+
+    <ImageView
+        android:id="@+id/media_player_cover"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content" />
+
+    <TextView
+        android:id="@+id/media_player_track"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content" />
+
+    <SeekBar
+        android:id="@+id/media_player_seek_bar"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content" />
 
     <LinearLayout
         android:orientation="horizontal"
-        android:layout_width="fill_parent"
+        android:layout_width="300dp"
         android:layout_height="wrap_content"
         android:gravity="center_horizontal">
 
         <Button
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:hint="Prev"/>
+            android:id="@+id/media_player_prev"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:hint="Prev"/>
 
         <ToggleButton
+            android:id="@+id/media_player_play"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:textOff="Play"
             android:textOn="Pause" />
 
         <Button
+            android:id="@+id/media_player_next"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:hint="Next"/>

@@ -28,6 +28,11 @@
         <activity android:name=".TopTrackActivity"
             android:parentActivityName=".ArtistActivity" />
 
+        <activity android:name=".PlayerActivity"
+            android:theme="@style/Base.V21.Theme.AppCompat.Dialog"/>
+
+        <service android:name=".MediaPlayerService" />
+
 
     </application>
 
