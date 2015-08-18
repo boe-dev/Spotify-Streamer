@@ -18,7 +18,11 @@ import android.widget.ToggleButton;
 
 import com.squareup.picasso.Picasso;
 
+import org.w3c.dom.Text;
+
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.logging.Handler;
 
 import de.boe_dev.spotifystreamer.functions.ItemDetailsWrapper;
@@ -28,7 +32,7 @@ import de.boe_dev.spotifystreamer.functions.ItemDetailsWrapper;
  */
 public class PlayerActivity extends Activity {
 
-    private TextView artist, album, track;
+    private TextView artist, album, track, playedTime, compleatTime;
     private ImageView cover;
     private SeekBar seekBar;
     private ToggleButton play;
@@ -37,8 +41,9 @@ public class PlayerActivity extends Activity {
     private ArrayList<TopTrackModel> list;
     private int pos;
 
-    MediaPlayerService mediaPlayerService;
-    boolean isBound = false;
+    private SimpleDateFormat df = new SimpleDateFormat();
+    private MediaPlayerService mediaPlayerService;
+    private boolean isBound = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -71,6 +76,8 @@ public class PlayerActivity extends Activity {
         artist = (TextView) findViewById(R.id.media_player_artist);
         album = (TextView) findViewById(R.id.media_player_album);
         track = (TextView) findViewById(R.id.media_player_track);
+        playedTime = (TextView) findViewById(R.id.media_player_played_time);
+        compleatTime = (TextView) findViewById(R.id.media_player_compleat_time);
         cover = (ImageView) findViewById(R.id.media_player_cover);
         seekBar = (SeekBar) findViewById(R.id.media_player_seek_bar);
         play = (ToggleButton) findViewById(R.id.media_player_play);
@@ -154,15 +161,26 @@ public class PlayerActivity extends Activity {
         new Thread() {
             public void run() {
                 while (mediaPlayerService.getCurrentPosition() != mediaPlayerService.getDuration()) {
-                    runOnUiThread(new Runnable() {
-                        @Override
-                        public void run() {
-                            seekBar.setProgress(mediaPlayerService.getCurrentPosition());
-                        }
-                    });
+                    try {
+                        runOnUiThread(new Runnable() {
+                            @Override
+                            public void run() {
+                                seekBar.setProgress(mediaPlayerService.getCurrentPosition());
+                                playedTime.setText( secondsToString( (mediaPlayerService.getCurrentPosition() / 1000) ) );
+
+                            }
+                        });
+                        Thread.sleep(200);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
                 }
             }
         }.start();
+    }
+
+    private String secondsToString(int pTime) {
+        return String.format("%02d:%02d", pTime / 60, pTime % 60);
     }
 
     @Override
@@ -180,6 +198,8 @@ public class PlayerActivity extends Activity {
             mediaPlayerService = binder.getService();
             isBound = true;
             seekBar.setMax(mediaPlayerService.getDuration());
+            playedTime.setText( secondsToString( (mediaPlayerService.getCurrentPosition() / 1000) ) );
+            compleatTime.setText( secondsToString( (mediaPlayerService.getDuration() / 1000) ) );
         }
 
         @Override
