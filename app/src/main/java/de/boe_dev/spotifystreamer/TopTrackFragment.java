@@ -12,6 +12,7 @@ import android.view.ViewGroup;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.ListView;
+import android.widget.Toast;
 
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -29,6 +30,7 @@ import kaaes.spotify.webapi.android.models.Tracks;
  */
 public class TopTrackFragment extends Fragment {
 
+    private Toast mAppToast;
     private ListView trackListView;
 
     @Override
@@ -75,38 +77,64 @@ public class TopTrackFragment extends Fragment {
 
             final ArrayList<TopTrackModel> trackArrayAdapter = new ArrayList<>();
 
-            for (int i = 0; i < tracks.tracks.size(); i++) {
+            if (tracks.tracks.size() >= 1) {
 
-                if (tracks.tracks.get(i).album.images.size() >= 1) {
-                    trackArrayAdapter.add(new TopTrackModel(
-                            tracks.tracks.get(i).id,
-                            tracks.tracks.get(i).artists.get(0).name,
-                            tracks.tracks.get(i).album.images.get(0).url,
-                            tracks.tracks.get(i).name,
-                            tracks.tracks.get(i).album.name,
-                            tracks.tracks.get(i).preview_url));
+                for (int i = 0; i < tracks.tracks.size(); i++) {
+
+                    if (tracks.tracks.get(i).album.images.size() >= 1) {
+                        trackArrayAdapter.add(new TopTrackModel(
+                                tracks.tracks.get(i).id,
+                                tracks.tracks.get(i).artists.get(0).name,
+                                tracks.tracks.get(i).album.images.get(0).url,
+                                tracks.tracks.get(i).name,
+                                tracks.tracks.get(i).album.name,
+                                tracks.tracks.get(i).preview_url));
+                    }
                 }
+
+                final ArrayAdapter<TopTrackModel> arrayAdapter = new TopTrackArrayAdapter(getActivity(), trackArrayAdapter);
+                trackListView.setAdapter(arrayAdapter);
+                trackListView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+                    @Override
+                    public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+                        Log.d("TopTrackFragment", arrayAdapter.getItem(position).getPreviewUrl());
+                        Intent player = new Intent(getActivity(), PlayerActivity.class);
+                        player.putExtra("artist", arrayAdapter.getItem(position).getArtist());
+                        player.putExtra("name", arrayAdapter.getItem(position).getName());
+                        player.putExtra("imageUrl", arrayAdapter.getItem(position).getImageUrl());
+                        player.putExtra("album", arrayAdapter.getItem(position).getAlbum());
+                        player.putExtra("previewUrl", arrayAdapter.getItem(position).getPreviewUrl());
+                        ItemDetailsWrapper wrapper = new ItemDetailsWrapper(trackArrayAdapter);
+                        player.putExtra("list", wrapper);
+                        player.putExtra("pos", position);
+                        startActivity(player);
+                    }
+                });
+            } else {
+                errorMessage(R.string.no_tracks_found);
             }
 
-            final ArrayAdapter<TopTrackModel> arrayAdapter = new TopTrackArrayAdapter(getActivity(), trackArrayAdapter);
-            trackListView.setAdapter(arrayAdapter);
-            trackListView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
-                @Override
-                public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-                    Log.d("TopTrackFragment", arrayAdapter.getItem(position).getPreviewUrl());
-                    Intent player = new Intent(getActivity(), PlayerActivity.class);
-                    player.putExtra("artist",       arrayAdapter.getItem(position).getArtist());
-                    player.putExtra("name",         arrayAdapter.getItem(position).getName());
-                    player.putExtra("imageUrl",     arrayAdapter.getItem(position).getImageUrl());
-                    player.putExtra("album",        arrayAdapter.getItem(position).getAlbum());
-                    player.putExtra("previewUrl",   arrayAdapter.getItem(position).getPreviewUrl());
-                    ItemDetailsWrapper wrapper = new ItemDetailsWrapper(trackArrayAdapter);
-                    player.putExtra("list", wrapper);
-                    player.putExtra("pos", position);
-                    startActivity(player);
-                }
-            });
-
         }
+
+
+        @Override
+        protected void onCancelled() {
+            super.onCancelled();
+            errorMessage(R.string.no_tracks_found);
+        }
+    }
+
+
+
+    private void errorMessage(int errorRes) {
+        ArrayList<String> cancelledMessage = new ArrayList<>();
+        cancelledMessage.add(getString(errorRes));
+        ArrayAdapter<String> arrayAdapter = new ArrayAdapter<>(getActivity(), R.layout.list_error_message, R.id.list_item_artist_textview, cancelledMessage);
+        trackListView.setAdapter(arrayAdapter);
+        if (mAppToast != null) {
+            mAppToast.cancel();
+        }
+        mAppToast = Toast.makeText(getActivity(), getString(errorRes), Toast.LENGTH_SHORT);
+        mAppToast.show();
     }
 }
