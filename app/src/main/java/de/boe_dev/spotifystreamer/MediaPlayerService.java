@@ -48,6 +48,10 @@ public class MediaPlayerService extends Service {
         mediaPlayer.pause();
     }
 
+    public boolean isPlaying() {
+        return mediaPlayer.isPlaying();
+    }
+
     public int getDuration() {
         return mediaPlayer.getDuration();
     }

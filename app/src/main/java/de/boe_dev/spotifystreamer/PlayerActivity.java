@@ -18,12 +18,9 @@ import android.widget.ToggleButton;
 
 import com.squareup.picasso.Picasso;
 
-import org.w3c.dom.Text;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Date;
-import java.util.logging.Handler;
 
 import de.boe_dev.spotifystreamer.functions.ItemDetailsWrapper;
 
@@ -42,7 +39,7 @@ public class PlayerActivity extends Activity {
     private int pos;
 
     private SimpleDateFormat df = new SimpleDateFormat();
-    private MediaPlayerService mediaPlayerService;
+    private static MediaPlayerService mediaPlayerService;
     private boolean isBound = false;
 
     @Override
@@ -57,16 +54,19 @@ public class PlayerActivity extends Activity {
             list = wrap.getItemDetails();
             pos = savedInstanceState.getInt("pos");
             initView();
+            play.setSelected(savedInstanceState.getBoolean("play"));
         }
     }
 
+
     private void setupPlayer() {
-        Intent player = new Intent(getApplicationContext(), MediaPlayerService.class)
+        Intent player = new Intent(getApplication(), MediaPlayerService.class)
                 .putExtra("previewUrl", list.get(pos).getPreviewUrl());
-        bindService(player, playerConnection, Context.BIND_AUTO_CREATE);
+        getApplicationContext().bindService(player, playerConnection, Context.BIND_AUTO_CREATE);
     }
 
     private void start() {
+        Log.d("PlayerActivity", "start");
         ItemDetailsWrapper wrap = (ItemDetailsWrapper) getIntent().getSerializableExtra("list");
         list = wrap.getItemDetails();
         pos = getIntent().getExtras().getInt("pos");
@@ -103,9 +103,9 @@ public class PlayerActivity extends Activity {
             @Override
             public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
 
-                if (isChecked) {
+                if (isChecked && !mediaPlayerService.isPlaying()) {
                     mediaPlayerService.play();
-                    seekBarAction();
+                    // seekBarAction();
                 } else {
                     mediaPlayerService.pause();
                 }
@@ -130,7 +130,7 @@ public class PlayerActivity extends Activity {
         next.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                unbindService(playerConnection);
+                getApplicationContext().unbindService(playerConnection);
                 play.setChecked(false);
                 if (pos == (list.size() - 1)) {
                     pos = 0;
@@ -151,7 +151,7 @@ public class PlayerActivity extends Activity {
         track.setText(list.get(pos).getName());
 
         if (!list.get(pos).getImageUrl().equals("")) {
-            Picasso.with(this).load(list.get(pos).getImageUrl()).into(cover);
+            //Picasso.with(this).load(list.get(pos).getImageUrl()).into(cover);
         } else {
             Picasso.with(this).load(R.drawable.image_not_found).into(cover);
         }
@@ -186,6 +186,7 @@ public class PlayerActivity extends Activity {
     @Override
     protected void onSaveInstanceState(Bundle outState) {
         super.onSaveInstanceState(outState);
+        outState.putBoolean("play", play.isChecked());
         outState.putInt("pos", pos);
         ItemDetailsWrapper wrapper = new ItemDetailsWrapper(list);
         outState.putSerializable("list", wrapper);
@@ -198,7 +199,7 @@ public class PlayerActivity extends Activity {
             mediaPlayerService = binder.getService();
             isBound = true;
             seekBar.setMax(mediaPlayerService.getDuration());
-            playedTime.setText( secondsToString( (mediaPlayerService.getCurrentPosition() / 1000) ) );
+            playedTime.setText(secondsToString((mediaPlayerService.getCurrentPosition() / 1000)));
             compleatTime.setText( secondsToString( (mediaPlayerService.getDuration() / 1000) ) );
         }
 

@@ -10,7 +10,7 @@ import de.boe_dev.spotifystreamer.TopTrackModel;
  */
 public class ItemDetailsWrapper implements Serializable {
 
-    private static final long serialVersionUID = 1L;
+    //private static final long serialVersionUID = 1L;
     private ArrayList<TopTrackModel> itemDetails;
 
     public ItemDetailsWrapper(ArrayList<TopTrackModel> items) {
