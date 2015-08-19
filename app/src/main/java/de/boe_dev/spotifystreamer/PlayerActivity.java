@@ -1,10 +1,13 @@
 package de.boe_dev.spotifystreamer;
 
 import android.app.Activity;
+import android.app.Notification;
+import android.app.NotificationManager;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.util.Log;
@@ -39,7 +42,7 @@ public class PlayerActivity extends Activity {
     private int pos;
 
     private SimpleDateFormat df = new SimpleDateFormat();
-    private static MediaPlayerService mediaPlayerService;
+    private MediaPlayerService mediaPlayerService;
     private boolean isBound = false;
 
     @Override
@@ -58,6 +61,26 @@ public class PlayerActivity extends Activity {
         }
     }
 
+    @Override
+    protected void onStop() {
+        super.onStop();
+        if (mediaPlayerService.isPlaying() && Build.VERSION.SDK_INT >= 21) {
+            Notification notification = new Notification.Builder(this)
+                    .setVisibility(Notification.VISIBILITY_PUBLIC)
+                    .setSmallIcon(R.mipmap.ic_launcher)
+                    .addAction(android.R.drawable.ic_media_previous, "Previous", null) //TODO change this
+                    .addAction(android.R.drawable.ic_media_pause, "Pause", null) //TODO change this
+                    .addAction(android.R.drawable.ic_media_next, "Next", null) //TODO change this
+                    .setStyle(new Notification.MediaStyle())
+                    .setContentTitle(list.get(pos).getName())
+                    .setContentText(list.get(pos).getArtist() + "\n" + list.get(pos).getAlbum())
+                    .build();
+
+            NotificationManager notificationManager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+            notificationManager.notify(0, notification);
+        }
+        getApplicationContext().unbindService(playerConnection);
+    }
 
     private void setupPlayer() {
         Intent player = new Intent(getApplication(), MediaPlayerService.class)
@@ -116,28 +139,29 @@ public class PlayerActivity extends Activity {
         prev.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                unbindService(playerConnection);
-                play.setChecked(false);
+                mediaPlayerService.resetPlayer();
                 if (pos == 0) {
                     pos = (list.size() - 1);
                 } else {
                     pos--;
                 }
                 fillView();
+                play.setSelected(false);
             }
         });
 
         next.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                getApplicationContext().unbindService(playerConnection);
-                play.setChecked(false);
+                mediaPlayerService.resetPlayer();
                 if (pos == (list.size() - 1)) {
                     pos = 0;
                 } else {
                     pos++;
                 }
                 fillView();
+                play.setSelected(false);
+
             }
         });
         fillView();

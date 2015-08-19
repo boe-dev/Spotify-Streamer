@@ -64,6 +64,10 @@ public class MediaPlayerService extends Service {
         mediaPlayer.seekTo(position);
     }
 
+    public void resetPlayer() {
+        mediaPlayer.reset();
+    }
+
     public class MyLocalBinder extends Binder {
         MediaPlayerService getService(){
             return MediaPlayerService.this;

@@ -79,6 +79,11 @@ public class ArtistActivityFragment extends Fragment {
                 Log.d(ARTIST,"" + savedInstanceState.getString(ARTIST));
             }
         }
+
+        Intent player = new Intent(getActivity().getApplicationContext(), MediaPlayerService.class);
+        getActivity().startService(player);
+
+
     }
 
     public class searchArtistIdTask extends AsyncTask<String, Void, ArtistsPager> {
