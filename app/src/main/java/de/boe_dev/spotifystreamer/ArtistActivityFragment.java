@@ -81,7 +81,7 @@ public class ArtistActivityFragment extends Fragment {
         }
 
         Intent player = new Intent(getActivity().getApplicationContext(), MediaPlayerService.class);
-        getActivity().startService(player);
+        getActivity().getApplicationContext().startService(player);
 
 
     }

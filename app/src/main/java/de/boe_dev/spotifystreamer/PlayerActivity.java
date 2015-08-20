@@ -40,16 +40,18 @@ public class PlayerActivity extends Activity {
 
     private ArrayList<TopTrackModel> list;
     private int pos;
+    private Thread seekBarThread;
 
     private SimpleDateFormat df = new SimpleDateFormat();
     private MediaPlayerService mediaPlayerService;
-    private boolean isBound = false;
+    private static boolean isBound = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_media_player);
         if (savedInstanceState == null) {
+            startPlayerService();
             start();
             initView();
         } else {
@@ -63,7 +65,6 @@ public class PlayerActivity extends Activity {
 
     @Override
     protected void onStop() {
-        super.onStop();
         if (mediaPlayerService.isPlaying() && Build.VERSION.SDK_INT >= 21) {
             Notification notification = new Notification.Builder(this)
                     .setVisibility(Notification.VISIBILITY_PUBLIC)
@@ -79,21 +80,30 @@ public class PlayerActivity extends Activity {
             NotificationManager notificationManager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
             notificationManager.notify(0, notification);
         }
-        getApplicationContext().unbindService(playerConnection);
+
+        if (isBound) {
+            getApplicationContext().unbindService(playerConnection);
+            isBound = false;
+        }
+        super.onStop();
     }
 
-    private void setupPlayer() {
-        Intent player = new Intent(getApplication(), MediaPlayerService.class)
-                .putExtra("previewUrl", list.get(pos).getPreviewUrl());
-        getApplicationContext().bindService(player, playerConnection, Context.BIND_AUTO_CREATE);
+    private void startPlayerService() {
+        Intent player = new Intent(getApplicationContext(), MediaPlayerService.class);
+        getApplicationContext().bindService(player, playerConnection, Context.BIND_ADJUST_WITH_ACTIVITY | Context.BIND_AUTO_CREATE);
     }
 
     private void start() {
-        Log.d("PlayerActivity", "start");
         ItemDetailsWrapper wrap = (ItemDetailsWrapper) getIntent().getSerializableExtra("list");
         list = wrap.getItemDetails();
         pos = getIntent().getExtras().getInt("pos");
     }
+
+    private void setupPlayer() {
+        mediaPlayerService.setupPlayer(list, pos);
+    }
+
+
 
     private void initView() {
         artist = (TextView) findViewById(R.id.media_player_artist);
@@ -126,11 +136,17 @@ public class PlayerActivity extends Activity {
             @Override
             public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
 
-                if (isChecked && !mediaPlayerService.isPlaying()) {
+//                if (isBound && isChecked) {
+//                    mediaPlayerService.loadPlayer();
+//                }
+
+                if (isChecked) {
                     mediaPlayerService.play();
-                    // seekBarAction();
+                    seekBarThread.start();
                 } else {
                     mediaPlayerService.pause();
+
+
                 }
 
             }
@@ -139,40 +155,28 @@ public class PlayerActivity extends Activity {
         prev.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                mediaPlayerService.resetPlayer();
-                if (pos == 0) {
-                    pos = (list.size() - 1);
-                } else {
-                    pos--;
-                }
+                mediaPlayerService.previous(play.isChecked());
                 fillView();
-                play.setSelected(false);
+//                play.setSelected(false);
             }
         });
 
         next.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                mediaPlayerService.resetPlayer();
-                if (pos == (list.size() - 1)) {
-                    pos = 0;
-                } else {
-                    pos++;
-                }
+                mediaPlayerService.next(play.isChecked());
                 fillView();
-                play.setSelected(false);
+                // play.setSelected(false);
 
             }
         });
-        fillView();
+
     }
 
     private void fillView() {
-
-        setupPlayer();
-        artist.setText(list.get(pos).getArtist());
-        album.setText(list.get(pos).getAlbum());
-        track.setText(list.get(pos).getName());
+        artist.setText(mediaPlayerService.getArtist());
+        album.setText(mediaPlayerService.getAlbum());
+        track.setText(mediaPlayerService.getName());
 
         if (!list.get(pos).getImageUrl().equals("")) {
             //Picasso.with(this).load(list.get(pos).getImageUrl()).into(cover);
@@ -181,16 +185,16 @@ public class PlayerActivity extends Activity {
         }
     }
 
-    private void seekBarAction(){
-        new Thread() {
+    private void seekBarAction() {
+        seekBarThread = new Thread() {
             public void run() {
-                while (mediaPlayerService.getCurrentPosition() != mediaPlayerService.getDuration()) {
+                while (mediaPlayerService.isPreparded() && mediaPlayerService.getCurrentPosition() != mediaPlayerService.getDuration()) {
                     try {
                         runOnUiThread(new Runnable() {
                             @Override
                             public void run() {
                                 seekBar.setProgress(mediaPlayerService.getCurrentPosition());
-                                playedTime.setText( secondsToString( (mediaPlayerService.getCurrentPosition() / 1000) ) );
+                                playedTime.setText(secondsToString((mediaPlayerService.getCurrentPosition() / 1000)));
 
                             }
                         });
@@ -200,7 +204,7 @@ public class PlayerActivity extends Activity {
                     }
                 }
             }
-        }.start();
+        };
     }
 
     private String secondsToString(int pTime) {
@@ -222,13 +226,16 @@ public class PlayerActivity extends Activity {
             MediaPlayerService.MyLocalBinder binder = (MediaPlayerService.MyLocalBinder) service;
             mediaPlayerService = binder.getService();
             isBound = true;
+            setupPlayer();
             seekBar.setMax(mediaPlayerService.getDuration());
             playedTime.setText(secondsToString((mediaPlayerService.getCurrentPosition() / 1000)));
-            compleatTime.setText( secondsToString( (mediaPlayerService.getDuration() / 1000) ) );
+            compleatTime.setText(secondsToString((mediaPlayerService.getDuration() / 1000)));
+            fillView();
         }
 
         @Override
         public void onServiceDisconnected(ComponentName name) {
+            Log.d("PlayerActivity", "Disconnected");
             isBound = false;
         }
     };
