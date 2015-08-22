@@ -1,14 +1,12 @@
 package de.boe_dev.spotifystreamer;
 
 import android.app.Service;
-import android.content.Context;
 import android.content.Intent;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
 import android.os.Binder;
 import android.os.IBinder;
 import android.util.Log;
-import android.view.View;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -18,11 +16,12 @@ import de.boe_dev.spotifystreamer.functions.ItemDetailsWrapper;
 /**
  * Created by ben on 15.08.15.
  */
-public class MediaPlayerService extends Service implements MediaPlayer.OnPreparedListener{
+public class MediaPlayerService extends Service implements MediaPlayer.OnCompletionListener, MediaPlayer.OnPreparedListener, MediaPlayer.OnSeekCompleteListener {
 
     private ArrayList<TopTrackModel> list;
     private int pos;
     private boolean preparded = false;
+    private static final int NOTIFICATION_ID = 13;
 
     private MediaPlayer mediaPlayer;
     private final IBinder MediaPlayerBinder = new MyLocalBinder();
@@ -32,7 +31,6 @@ public class MediaPlayerService extends Service implements MediaPlayer.OnPrepare
     public void onDestroy() {
         mediaPlayer.stop();
         mediaPlayer.release();
-        mediaPlayer = null;
         super.onDestroy();
     }
 
@@ -41,6 +39,9 @@ public class MediaPlayerService extends Service implements MediaPlayer.OnPrepare
 
         Log.d("MediaPlayerSerivce", "onBind");
         ItemDetailsWrapper wrap = (ItemDetailsWrapper) intent.getSerializableExtra("list");
+
+        mediaPlayer = new MediaPlayer();
+        mediaPlayer.setOnPreparedListener(this);
         return MediaPlayerBinder;
     }
 
@@ -85,12 +86,14 @@ public class MediaPlayerService extends Service implements MediaPlayer.OnPrepare
     }
 
     public void loadPlayer() {
+
         if (mediaPlayer != null) {
-            mediaPlayer.stop();
-            mediaPlayer.release();
-            mediaPlayer = null;
+//            mediaPlayer.stop();
+//            mediaPlayer.release();
+//            mediaPlayer = null;
+            mediaPlayer.reset();
         }
-        mediaPlayer = new MediaPlayer();
+
         mediaPlayer.setAudioStreamType(AudioManager.STREAM_MUSIC);
         try {
             mediaPlayer.setDataSource(list.get(pos).getPreviewUrl());
@@ -140,9 +143,23 @@ public class MediaPlayerService extends Service implements MediaPlayer.OnPrepare
         return list.get(pos).getImageUrl();
     }
 
+    public String getPreviewUrl() {
+        return list.get(pos).getPreviewUrl();
+    }
+
     @Override
     public void onPrepared(MediaPlayer mp) {
         preparded = true;
+    }
+
+    @Override
+    public void onSeekComplete(MediaPlayer mp) {
+
+    }
+
+    @Override
+    public void onCompletion(MediaPlayer mp) {
+        //goto next?
     }
 
     public class MyLocalBinder extends Binder {

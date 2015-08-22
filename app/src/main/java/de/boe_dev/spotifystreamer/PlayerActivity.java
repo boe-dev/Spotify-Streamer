@@ -11,6 +11,8 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.util.Log;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
 import android.widget.CompoundButton;
@@ -88,6 +90,34 @@ public class PlayerActivity extends Activity {
         super.onStop();
     }
 
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        // Inflate the menu; this adds items to the action bar if it is present.
+        getMenuInflater().inflate(R.menu.media_player_menu, menu);
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        // Handle action bar item clicks here. The action bar will
+        // automatically handle clicks on the Home/Up button, so long
+        // as you specify a parent activity in AndroidManifest.xml.
+        int id = item.getItemId();
+
+        //noinspection SimplifiableIfStatement
+        if (id == R.id.action_share) {
+            Intent sendIntent = new Intent();
+            sendIntent.setAction(Intent.ACTION_SEND);
+            sendIntent.putExtra(Intent.EXTRA_TEXT, mediaPlayerService.getPreviewUrl());
+            sendIntent.setType("text/plain");
+            startActivity(sendIntent);
+            return true;
+        }
+
+        return super.onOptionsItemSelected(item);
+    }
+
+
     private void startPlayerService() {
         Intent player = new Intent(getApplicationContext(), MediaPlayerService.class);
         getApplicationContext().bindService(player, playerConnection, Context.BIND_ADJUST_WITH_ACTIVITY | Context.BIND_AUTO_CREATE);
@@ -117,6 +147,7 @@ public class PlayerActivity extends Activity {
         prev = (Button) findViewById(R.id.media_player_prev);
         next = (Button) findViewById(R.id.media_player_next);
 
+
         seekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
@@ -142,7 +173,7 @@ public class PlayerActivity extends Activity {
 
                 if (isChecked) {
                     mediaPlayerService.play();
-                    seekBarThread.start();
+                    seekBarAction();
                 } else {
                     mediaPlayerService.pause();
 
@@ -157,6 +188,10 @@ public class PlayerActivity extends Activity {
             public void onClick(View v) {
                 mediaPlayerService.previous(play.isChecked());
                 fillView();
+                if (play.isChecked()) {
+                    seekBarAction();
+                }
+
 //                play.setSelected(false);
             }
         });
@@ -166,6 +201,9 @@ public class PlayerActivity extends Activity {
             public void onClick(View v) {
                 mediaPlayerService.next(play.isChecked());
                 fillView();
+                if (play.isChecked()) {
+                    seekBarAction();
+                }
                 // play.setSelected(false);
 
             }
@@ -178,15 +216,17 @@ public class PlayerActivity extends Activity {
         album.setText(mediaPlayerService.getAlbum());
         track.setText(mediaPlayerService.getName());
 
-        if (!list.get(pos).getImageUrl().equals("")) {
-            //Picasso.with(this).load(list.get(pos).getImageUrl()).into(cover);
+        if (!mediaPlayerService.getImageUrl().equals("")) {
+            Picasso.with(this).load(mediaPlayerService.getImageUrl()).into(cover);
         } else {
             Picasso.with(this).load(R.drawable.image_not_found).into(cover);
         }
+
+        seekBar.setProgress(0);
     }
 
     private void seekBarAction() {
-        seekBarThread = new Thread() {
+        new Thread() {
             public void run() {
                 while (mediaPlayerService.isPreparded() && mediaPlayerService.getCurrentPosition() != mediaPlayerService.getDuration()) {
                     try {
@@ -204,7 +244,7 @@ public class PlayerActivity extends Activity {
                     }
                 }
             }
-        };
+        }.start();
     }
 
     private String secondsToString(int pTime) {
