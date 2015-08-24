@@ -1,51 +1,31 @@
 package de.boe_dev.spotifystreamer;
 
-import android.app.ActivityManager;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.v4.app.FragmentManager;
 import android.support.v7.app.AppCompatActivity;
-import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
-import android.widget.ArrayAdapter;
-import android.widget.ListView;
-import android.widget.Toast;
-
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Locale;
-import java.util.Map;
-
-import de.boe_dev.spotifystreamer.functions.NetworkFunctions;
-import kaaes.spotify.webapi.android.SpotifyApi;
-import kaaes.spotify.webapi.android.SpotifyService;
-import kaaes.spotify.webapi.android.models.Tracks;
 
 /**
  * Created by benny on 17.06.15.
  */
 public class TopTrackActivity extends AppCompatActivity {
 
-//    private ListView trackListView;
-//    private Toast mAppToast;
-
+    private static final String NOW_PLAYING = "showNowPlaying";
     private boolean showNowPlaying = false;
-    private boolean mBufferBroadcasRegistered;
+    private boolean mBroadcastRegistered;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_top_tracks);
-        // trackListView = (ListView) findViewById(R.id.list_view_tracks);
         getSupportActionBar().setTitle(getString(R.string.top_10_tracks));
 
         if (savedInstanceState == null) {
-            Log.d("TopTrackActivity", "artistId = " + getIntent().getStringExtra("artistId"));
             Bundle args = new Bundle();
             args.putString("artistId", getIntent().getStringExtra("artistId"));
             TopTrackFragment fragment = new TopTrackFragment();
@@ -54,25 +34,24 @@ public class TopTrackActivity extends AppCompatActivity {
                     .add(R.id.top_track_container, fragment)
                     .commit();
         } else {
-            showNowPlaying = savedInstanceState.getBoolean("showNowPlaying");
+            showNowPlaying = savedInstanceState.getBoolean(NOW_PLAYING);
         }
-
     }
 
     @Override
     public void onResume() {
-        if (!mBufferBroadcasRegistered) {
-            registerReceiver(broadcastBufferReceiver, new IntentFilter(MediaPlayerService.BUFFER));
-            mBufferBroadcasRegistered = true;
+        if (!mBroadcastRegistered) {
+            registerReceiver(broadcastReceiver, new IntentFilter(MediaPlayerService.DATA));
+            mBroadcastRegistered = true;
         }
         super.onResume();
     }
 
     @Override
     public void onPause() {
-        if (mBufferBroadcasRegistered) {
-            unregisterReceiver(broadcastBufferReceiver);
-            mBufferBroadcasRegistered = false;
+        if (mBroadcastRegistered) {
+            unregisterReceiver(broadcastReceiver);
+            mBroadcastRegistered = false;
         }
         super.onPause();
     }
@@ -109,23 +88,20 @@ public class TopTrackActivity extends AppCompatActivity {
     @Override
     protected void onSaveInstanceState(Bundle outState) {
         super.onSaveInstanceState(outState);
-        outState.putBoolean("showNowPlaying", showNowPlaying);
+        outState.putBoolean(NOW_PLAYING, showNowPlaying);
     }
 
-    private BroadcastReceiver broadcastBufferReceiver = new BroadcastReceiver() {
+    private BroadcastReceiver broadcastReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
-            String bufferValue = intent.getStringExtra("buffering");
-            int bufferIntValue = Integer.parseInt(bufferValue);
-            if (bufferIntValue == 5) {
+            String dataValue = intent.getStringExtra(getString(R.string.data));
+            int dataIntValue = Integer.parseInt(dataValue);
+            if (dataIntValue == 5) {
                 showNowPlaying = true;
-
-            } else if (bufferIntValue == 3) {
+            } else if (dataIntValue == 3) {
                 showNowPlaying = false;
             }
-
             supportInvalidateOptionsMenu();
-
         }
     };
 

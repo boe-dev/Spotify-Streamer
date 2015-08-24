@@ -3,16 +3,13 @@ package de.boe_dev.spotifystreamer;
 import android.app.Notification;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
-import android.app.ProgressDialog;
 import android.app.Service;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.content.SharedPreferences;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
-import android.graphics.drawable.Drawable;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
 
@@ -24,16 +21,10 @@ import android.os.IBinder;
 import android.telephony.PhoneStateListener;
 import android.telephony.TelephonyManager;
 import android.util.Log;
-import android.widget.ImageView;
-
-import com.squareup.picasso.Picasso;
-import com.squareup.picasso.Target;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
-
-import de.boe_dev.spotifystreamer.functions.ItemDetailsWrapper;
 
 /**
  * Created by ben on 15.08.15.
@@ -42,7 +33,6 @@ public class MediaPlayerService extends Service implements MediaPlayer.OnComplet
 
     private ArrayList<TopTrackModel> list;
     private int pos;
-    private boolean preparded = false;
     private static final int NOTIFICATION_ID = 13;
     private boolean isPausedInCall = false;
 
@@ -50,19 +40,46 @@ public class MediaPlayerService extends Service implements MediaPlayer.OnComplet
     private final IBinder MediaPlayerBinder = new MyLocalBinder();
     private PhoneStateListener phoneStateListener;
     private TelephonyManager telephonyManager;
-    private Target loadtarget;
-
-    private Bitmap iconBitmap;
 
     private int mediaPosition;
     private final Handler handler = new Handler();
     public static final String SEEK_BROADCAST = "de.boe_dev.media_player_seek";
 
-    public static final String BUFFER = "de.boe_dev.media_player_buffer";
-    private Intent bufferIntent, seekIntent;
+    public static final String DATA = "de.boe_dev.media_player_data";
+    private Intent dataIntent, seekIntent;
 
     private int headsetSwitch = 1;
 
+
+
+
+    @Override
+    public void onCreate() {
+        super.onCreate();
+        dataIntent = new Intent(DATA);
+        seekIntent = new Intent(SEEK_BROADCAST);
+        registerReceiver(headsetReceiver, new IntentFilter(Intent.ACTION_HEADSET_PLUG));
+    }
+
+    @Override
+    public int onStartCommand(Intent intent, int flags, int startId) {
+        //This code should pause the music if a phone call comes in
+        checkPhoneCalles();
+        //This is for the seekBar update on MediaPlayerDialog
+        setupSeekBarHandler();
+        //This is for the Notification Media Player
+        handleIntent(intent);
+        return START_STICKY;
+    }
+
+    @Override
+    public IBinder onBind(Intent intent) {
+        mediaPlayer = new MediaPlayer();
+        mediaPlayer.setOnPreparedListener(this);
+        mediaPlayer.setOnCompletionListener(this);
+        mediaPlayer.setOnSeekCompleteListener(this);
+        return MediaPlayerBinder;
+    }
 
     @Override
     public void onDestroy() {
@@ -73,23 +90,32 @@ public class MediaPlayerService extends Service implements MediaPlayer.OnComplet
         super.onDestroy();
     }
 
-    @Override
-    public void onCreate() {
-        super.onCreate();
-        bufferIntent = new Intent(BUFFER);
-        seekIntent = new Intent(SEEK_BROADCAST);
-        registerReceiver(headsetReceiver, new IntentFilter(Intent.ACTION_HEADSET_PLUG));
-    }
+    private BroadcastReceiver headsetReceiver = new BroadcastReceiver() {
+        private boolean headsetConnect = false;
 
-    @Override
-    public int onStartCommand(Intent intent, int flags, int startId) {
+        @Override
+        public void onReceive(Context context, Intent intent) {
 
-        //This code should pause the music if a phone call comes in
+            if (intent.hasExtra("state")) {
+                if (headsetConnect && intent.getIntExtra("state", 0) == 0) {
+                    headsetConnect = false;
+                    headsetSwitch = 0;
+                } else if (!headsetConnect && intent.getIntExtra("state", 0) == 1) {
+                    headsetConnect = true;
+                    headsetSwitch = 1;
+                }
+            }
+            if (headsetSwitch == 0) {
+                pause();
+            }
+        }
+    };
+
+    private void checkPhoneCalles() {
         telephonyManager = (TelephonyManager) getSystemService(Context.TELEPHONY_SERVICE);
         phoneStateListener = new PhoneStateListener() {
             @Override
             public void onCallStateChanged(int state, String incomingNumber) {
-
                 switch (state) {
                     case TelephonyManager.CALL_STATE_RINGING:
                         if (mediaPlayer != null && mediaPlayer.isPlaying()) {
@@ -109,28 +135,9 @@ public class MediaPlayerService extends Service implements MediaPlayer.OnComplet
             }
         };
         telephonyManager.listen(phoneStateListener, PhoneStateListener.LISTEN_CALL_STATE);
-        setupHandler();
-
-        if( intent != null && intent.getAction() != null ) {
-            Log.d("MediaPlayerService", intent.getAction());
-            if (intent.getAction().equals("ACTION_PREVIOUS")) {
-                previous(mediaPlayer.isPlaying());
-            } else if (intent.getAction().equals("ACTION_NEXT")) {
-                next(mediaPlayer.isPlaying());
-            } else if (intent.getAction().equals("ACTION_PAUSE")) {
-                pause();
-            } else if (intent.getAction().equals("ACTION_PLAY")) {
-                play();
-            } else if (intent.getAction().equals("ACTION_STOP")) {
-                mediaPlayer.pause();
-                sendBufferingBroadcast("2");
-            }
-        }
-
-        return START_STICKY;
     }
 
-    private void setupHandler() {
+    private void setupSeekBarHandler() {
         handler.removeCallbacks(sendUpdatesToUi);
         handler.postDelayed(sendUpdatesToUi, 300);
     }
@@ -151,41 +158,22 @@ public class MediaPlayerService extends Service implements MediaPlayer.OnComplet
         }
     }
 
-
-
-    @Override
-    public IBinder onBind(Intent intent) {
-        mediaPlayer = new MediaPlayer();
-        mediaPlayer.setOnPreparedListener(this);
-        mediaPlayer.setOnCompletionListener(this);
-        mediaPlayer.setOnSeekCompleteListener(this);
-        return MediaPlayerBinder;
-    }
-
-
-    private BroadcastReceiver headsetReceiver = new BroadcastReceiver() {
-
-        private boolean headsetConnect = false;
-
-        @Override
-        public void onReceive(Context context, Intent intent) {
-
-            if (intent.hasExtra("state")) {
-                if (headsetConnect && intent.getIntExtra("state", 0) == 0) {
-                    headsetConnect = false;
-                    headsetSwitch = 0;
-                } else if (!headsetConnect && intent.getIntExtra("state", 0) == 1) {
-                    headsetConnect = true;
-                    headsetSwitch = 1;
-                }
-            }
-
-            if (headsetSwitch == 0) {
+    private void handleIntent(Intent intent) {
+        if( intent != null && intent.getAction() != null ) {
+            if (intent.getAction().equals("ACTION_PREVIOUS")) {
+                previous(mediaPlayer.isPlaying());
+            } else if (intent.getAction().equals("ACTION_NEXT")) {
+                next(mediaPlayer.isPlaying());
+            } else if (intent.getAction().equals("ACTION_PAUSE")) {
                 pause();
+            } else if (intent.getAction().equals("ACTION_PLAY")) {
+                play();
+            } else if (intent.getAction().equals("ACTION_STOP")) {
+                mediaPlayer.pause();
+                sendBufferingBroadcast("2");
             }
-
         }
-    };
+    }
 
     public void setupPlayer(ArrayList<TopTrackModel> list, int pos) {
         this.list = list;
@@ -197,7 +185,6 @@ public class MediaPlayerService extends Service implements MediaPlayer.OnComplet
         mediaPlayer.start();
         sendBufferingBroadcast("5");
         loadNotification(getImageUrl());
-
     }
 
     public void pause() {
@@ -219,7 +206,6 @@ public class MediaPlayerService extends Service implements MediaPlayer.OnComplet
         } else {
             loadNotification(getImageUrl());
         }
-
     }
 
     public void previous(boolean play) {
@@ -234,7 +220,6 @@ public class MediaPlayerService extends Service implements MediaPlayer.OnComplet
         } else {
             loadNotification(getImageUrl());
         }
-
     }
 
     public void loadPlayer() {
@@ -246,19 +231,15 @@ public class MediaPlayerService extends Service implements MediaPlayer.OnComplet
         mediaPlayer.setAudioStreamType(AudioManager.STREAM_MUSIC);
         try {
             mediaPlayer.setDataSource(list.get(pos).getPreviewUrl());
-            preparded = false;
             mediaPlayer.prepare();
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
-    /**
-        1 is buffering, 0 is buffering is completed
-     */
     private void sendBufferingBroadcast(String state) {
-        bufferIntent.putExtra("buffering", state);
-        sendBroadcast(bufferIntent);
+        dataIntent.putExtra(getString(R.string.data), state);
+        sendBroadcast(dataIntent);
     }
 
 
@@ -349,12 +330,10 @@ public class MediaPlayerService extends Service implements MediaPlayer.OnComplet
         } else {
             return null;
         }
-
     }
 
     @Override
     public void onPrepared(MediaPlayer mp) {
-        preparded = true;
         sendBufferingBroadcast("0");
     }
 
@@ -389,7 +368,6 @@ public class MediaPlayerService extends Service implements MediaPlayer.OnComplet
             }
             return mIcon11;
         }
-
         protected void onPostExecute(Bitmap result) {
             showNotification(result);
         }

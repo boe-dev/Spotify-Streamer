@@ -1,7 +1,5 @@
 package de.boe_dev.spotifystreamer;
 
-import android.app.Notification;
-import android.app.NotificationManager;
 import android.app.ProgressDialog;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
@@ -9,7 +7,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
-import android.os.Build;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.support.annotation.Nullable;
@@ -69,53 +66,11 @@ public class MediaPlayerDialog extends DialogFragment  {
         setRetainInstance(true);
     }
 
-    @Override
-    public void onResume() {
-        if (!mBufferBroadcasRegistered) {
-            getActivity().registerReceiver(broadcastBufferReceiver, new IntentFilter(MediaPlayerService.BUFFER));
-            mBufferBroadcasRegistered = true;
-        }
-
-        if (!mSeekBarBroadcastRegistered) {
-            getActivity().registerReceiver(seekBroadcastReceiver, new IntentFilter(MediaPlayerService.SEEK_BROADCAST));
-            mSeekBarBroadcastRegistered = true;
-        }
-
-        super.onResume();
-    }
-
-    @Override
-    public void onPause() {
-        if (mBufferBroadcasRegistered) {
-            getActivity().unregisterReceiver(broadcastBufferReceiver);
-            mBufferBroadcasRegistered = false;
-        }
-
-        if (mSeekBarBroadcastRegistered) {
-            getActivity().unregisterReceiver(seekBroadcastReceiver);
-            mSeekBarBroadcastRegistered = false;
-        }
-
-        super.onPause();
-    }
-
-    @Override
-    public void onStop() {
-
-        if (isBound) {
-            context.unbindService(playerConnection);
-            isBound = false;
-        }
-        super.onStop();
-    }
-
     @Nullable
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
-
         View rootView = inflater.inflate(R.layout.activity_media_player, container, false);
         initView(rootView);
-
         if (savedInstanceState == null) {
             startPlayerService();
         } else {
@@ -124,13 +79,44 @@ public class MediaPlayerDialog extends DialogFragment  {
             pos = savedInstanceState.getInt("pos");
             play.setSelected(savedInstanceState.getBoolean("play"));
             fillView();
-            if (mediaPlayerService.isPlaying()) {
-
-            }
-
         }
-
         return rootView;
+    }
+
+    @Override
+    public void onResume() {
+        if (!mBufferBroadcasRegistered) {
+            getActivity().registerReceiver(broadcastReceiver, new IntentFilter(MediaPlayerService.DATA));
+            mBufferBroadcasRegistered = true;
+        }
+        if (!mSeekBarBroadcastRegistered) {
+            getActivity().registerReceiver(seekBroadcastReceiver, new IntentFilter(MediaPlayerService.SEEK_BROADCAST));
+            mSeekBarBroadcastRegistered = true;
+        }
+        super.onResume();
+    }
+
+
+    @Override
+    public void onPause() {
+        if (mBufferBroadcasRegistered) {
+            getActivity().unregisterReceiver(broadcastReceiver);
+            mBufferBroadcasRegistered = false;
+        }
+        if (mSeekBarBroadcastRegistered) {
+            getActivity().unregisterReceiver(seekBroadcastReceiver);
+            mSeekBarBroadcastRegistered = false;
+        }
+        super.onPause();
+    }
+
+    @Override
+    public void onStop() {
+        if (isBound) {
+            context.unbindService(playerConnection);
+            isBound = false;
+        }
+        super.onStop();
     }
 
     @Override
@@ -149,31 +135,7 @@ public class MediaPlayerDialog extends DialogFragment  {
         outState.putSerializable("list", wrapper);
     }
 
-    private void startPlayerService() {
-        Intent player = new Intent(context, MediaPlayerService.class);
-        context.bindService(player, playerConnection, Context.BIND_ADJUST_WITH_ACTIVITY | Context.BIND_AUTO_CREATE);
-    }
-
-
-    private void setupPlayer() {
-
-        if (list != null) {
-            new Thread() {
-                @Override
-                public void run() {
-                    mediaPlayerService.setupPlayer(list, pos);
-                }
-            }.start();
-        } else {
-            fillView();
-        }
-
-    }
-
-
-
     private void initView(View view) {
-
         toolbar = (Toolbar) view.findViewById(R.id.media_player_toolbar);
         album = (TextView) view.findViewById(R.id.media_player_album);
         track = (TextView) view.findViewById(R.id.media_player_track);
@@ -201,7 +163,6 @@ public class MediaPlayerDialog extends DialogFragment  {
             }
         });
         toolbar.inflateMenu(R.menu.media_player_menu);
-
 
         seekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
@@ -247,7 +208,7 @@ public class MediaPlayerDialog extends DialogFragment  {
         });
 
         next.setOnClickListener(new View.OnClickListener() {
-            
+
             @Override
             public void onClick(View v) {
                 new Thread() {
@@ -259,6 +220,41 @@ public class MediaPlayerDialog extends DialogFragment  {
             }
         });
 
+    }
+
+    private void startPlayerService() {
+        Intent player = new Intent(context, MediaPlayerService.class);
+        context.bindService(player, playerConnection, Context.BIND_ADJUST_WITH_ACTIVITY | Context.BIND_AUTO_CREATE);
+    }
+
+    private ServiceConnection playerConnection = new ServiceConnection() {
+        @Override
+        public void onServiceConnected(ComponentName name, IBinder service) {
+            MediaPlayerService.MyLocalBinder binder = (MediaPlayerService.MyLocalBinder) service;
+            mediaPlayerService = binder.getService();
+            isBound = true;
+            setupPlayer();
+        }
+
+        @Override
+        public void onServiceDisconnected(ComponentName name) {
+            Log.d("PlayerActivity", "Disconnected");
+            isBound = false;
+        }
+    };
+
+
+    private void setupPlayer() {
+        if (list != null) {
+            new Thread() {
+                @Override
+                public void run() {
+                    mediaPlayerService.setupPlayer(list, pos);
+                }
+            }.start();
+        } else {
+            fillView();
+        }
     }
 
     private void fillView() {
@@ -285,58 +281,17 @@ public class MediaPlayerDialog extends DialogFragment  {
         }
     }
 
-//    private void seekBarAction() {
-//        new Thread() {
-//            public void run() {
-//                while (mediaPlayerService.isPlaying() && mediaPlayerService.getCurrentPosition() != mediaPlayerService.getDuration()) {
-//                    try {
-//                        getActivity().runOnUiThread(new Runnable() {
-//                            @Override
-//                            public void run() {
-//                                seekBar.setProgress(mediaPlayerService.getCurrentPosition());
-//                                playedTime.setText(secondsToString((mediaPlayerService.getCurrentPosition() / 1000)));
-//
-//                            }
-//                        });
-//                        Thread.sleep(200);
-//                    } catch (InterruptedException e) {
-//                        e.printStackTrace();
-//                    }
-//                }
-//            }
-//        }.start();
-//    }
-
     private String secondsToString(int pTime) {
         return String.format("%02d:%02d", pTime / 60, pTime % 60);
     }
 
 
+    private void handlerBroadcast(Intent intent) {
 
-    private ServiceConnection playerConnection = new ServiceConnection() {
-        @Override
-        public void onServiceConnected(ComponentName name, IBinder service) {
-            MediaPlayerService.MyLocalBinder binder = (MediaPlayerService.MyLocalBinder) service;
-            mediaPlayerService = binder.getService();
-            isBound = true;
-            setupPlayer();
+        String dataValue = intent.getStringExtra(getString(R.string.data));
+        int dataIntValue = Integer.parseInt(dataValue);
 
-
-        }
-
-        @Override
-        public void onServiceDisconnected(ComponentName name) {
-            Log.d("PlayerActivity", "Disconnected");
-            isBound = false;
-        }
-    };
-
-    private void showProgressDialog(Intent bufferIntent) {
-
-        String bufferValue = bufferIntent.getStringExtra("buffering");
-        int bufferIntValue = Integer.parseInt(bufferValue);
-
-        switch (bufferIntValue) {
+        switch (dataIntValue) {
             case 0:
                 if (progressBuffer != null) {
                     fillView();
@@ -345,7 +300,7 @@ public class MediaPlayerDialog extends DialogFragment  {
                 break;
 
             case 1:
-                progressBuffer = ProgressDialog.show(context, "Buffering...", "Data will load...", true);
+                progressBuffer = ProgressDialog.show(context, getString(R.string.buffering), getString(R.string.data_will_load), true);
                 break;
 
             case 2:
@@ -368,10 +323,10 @@ public class MediaPlayerDialog extends DialogFragment  {
 
     }
 
-    private BroadcastReceiver broadcastBufferReceiver = new BroadcastReceiver() {
+    private BroadcastReceiver broadcastReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
-            showProgressDialog(intent);
+            handlerBroadcast(intent);
         }
     };
 
@@ -379,9 +334,9 @@ public class MediaPlayerDialog extends DialogFragment  {
         @Override
         public void onReceive(Context context, Intent intent) {
             String intentValue = intent.getStringExtra("counter");
-            int seekIntVallue = Integer.parseInt(intentValue);
-            seekBar.setProgress(seekIntVallue);
-            playedTime.setText(secondsToString((seekIntVallue / 1000)));
+            int seekIntValue = Integer.parseInt(intentValue);
+            seekBar.setProgress(seekIntValue);
+            playedTime.setText(secondsToString((seekIntValue / 1000)));
         }
     };
 
