@@ -8,6 +8,7 @@ import android.content.IntentFilter;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
 import android.os.Binder;
+import android.os.Handler;
 import android.os.IBinder;
 import android.telephony.PhoneStateListener;
 import android.telephony.TelephonyManager;
@@ -34,8 +35,16 @@ public class MediaPlayerService extends Service implements MediaPlayer.OnComplet
     private PhoneStateListener phoneStateListener;
     private TelephonyManager telephonyManager;
 
-    public static final String  BUFFER = "de.boe_dev.media_player_buffer";
-    private Intent bufferIntent;
+    private String sntSeekPos;
+    private int intSeekPos;
+    private int mediaPosition;
+    private int mediaMax;
+    private final Handler handler = new Handler();
+    private static int songEnden;
+    public static final String SEEK_BROADCAST = "de.boe_dev.media_player_seek";
+
+    public static final String BUFFER = "de.boe_dev.media_player_buffer";
+    private Intent bufferIntent, seekIntent;
 
     private int headsetSwitch = 1;
 
@@ -45,6 +54,7 @@ public class MediaPlayerService extends Service implements MediaPlayer.OnComplet
         mediaPlayer.stop();
         mediaPlayer.release();
         telephonyManager.listen(phoneStateListener, PhoneStateListener.LISTEN_NONE);
+        handler.removeCallbacks(sendUpdatesToUi);
         super.onDestroy();
     }
 
@@ -52,6 +62,7 @@ public class MediaPlayerService extends Service implements MediaPlayer.OnComplet
     public void onCreate() {
         super.onCreate();
         bufferIntent = new Intent(BUFFER);
+        seekIntent = new Intent(SEEK_BROADCAST);
         registerReceiver(headsetReceiver, new IntentFilter(Intent.ACTION_HEADSET_PLUG));
     }
 
@@ -83,9 +94,34 @@ public class MediaPlayerService extends Service implements MediaPlayer.OnComplet
             }
         };
         telephonyManager.listen(phoneStateListener, PhoneStateListener.LISTEN_CALL_STATE);
+        
+        setupHandler();
 
         return super.onStartCommand(intent, flags, startId);
     }
+
+    private void setupHandler() {
+        handler.removeCallbacks(sendUpdatesToUi);
+        handler.postDelayed(sendUpdatesToUi, 300);
+    }
+
+    private Runnable sendUpdatesToUi = new Runnable() {
+        @Override
+        public void run() {
+            LogMediaPosition();
+            handler.postDelayed(this, 300);
+        }
+    };
+
+    private void LogMediaPosition() {
+        if (mediaPlayer != null && mediaPlayer.isPlaying()) {
+            mediaPosition = mediaPlayer.getCurrentPosition();
+            mediaMax = mediaPlayer.getDuration();
+            seekIntent.putExtra("counter", String.valueOf(mediaPosition));
+            sendBroadcast(seekIntent);
+        }
+    }
+
 
     @Override
     public IBinder onBind(Intent intent) {
