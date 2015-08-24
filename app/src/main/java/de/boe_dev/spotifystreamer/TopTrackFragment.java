@@ -6,6 +6,9 @@ import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentManager;
 import android.util.Log;
 import android.view.LayoutInflater;
+import android.view.Menu;
+import android.view.MenuInflater;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.AdapterView;
@@ -31,6 +34,12 @@ public class TopTrackFragment extends Fragment {
     private ListView trackListView;
 
     @Override
+    public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setHasOptionsMenu(true);
+    }
+
+    @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
 
         View rootView = inflater.inflate(R.layout.fragment_top_tracks, container, false);
@@ -40,8 +49,12 @@ public class TopTrackFragment extends Fragment {
         if (arguments != null) {
             new getArtistTopTracks().execute(arguments.getString("artistId"));
         }
-
         return rootView;
+    }
+
+    @Override
+    public void onCreateOptionsMenu(Menu menu, MenuInflater inflater) {
+        inflater.inflate(R.menu.media_player_menu, menu);
     }
 
     public class getArtistTopTracks extends AsyncTask<String, Void , Tracks> {

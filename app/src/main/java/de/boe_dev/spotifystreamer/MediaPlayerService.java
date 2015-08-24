@@ -1,20 +1,35 @@
 package de.boe_dev.spotifystreamer;
 
+import android.app.Notification;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
+import android.app.ProgressDialog;
 import android.app.Service;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.drawable.Drawable;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
+
+import android.os.AsyncTask;
 import android.os.Binder;
+import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
 import android.telephony.PhoneStateListener;
 import android.telephony.TelephonyManager;
 import android.util.Log;
+import android.widget.ImageView;
+
+import com.squareup.picasso.Picasso;
+import com.squareup.picasso.Target;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
 
 import de.boe_dev.spotifystreamer.functions.ItemDetailsWrapper;
@@ -34,13 +49,12 @@ public class MediaPlayerService extends Service implements MediaPlayer.OnComplet
     private final IBinder MediaPlayerBinder = new MyLocalBinder();
     private PhoneStateListener phoneStateListener;
     private TelephonyManager telephonyManager;
+    private Target loadtarget;
 
-    private String sntSeekPos;
-    private int intSeekPos;
+    private Bitmap iconBitmap;
+
     private int mediaPosition;
-    private int mediaMax;
     private final Handler handler = new Handler();
-    private static int songEnden;
     public static final String SEEK_BROADCAST = "de.boe_dev.media_player_seek";
 
     public static final String BUFFER = "de.boe_dev.media_player_buffer";
@@ -94,10 +108,25 @@ public class MediaPlayerService extends Service implements MediaPlayer.OnComplet
             }
         };
         telephonyManager.listen(phoneStateListener, PhoneStateListener.LISTEN_CALL_STATE);
-        
         setupHandler();
 
-        return super.onStartCommand(intent, flags, startId);
+        if( intent != null && intent.getAction() != null ) {
+            Log.d("MediaPlayerService", intent.getAction());
+            if (intent.getAction().equals("ACTION_PREVIOUS")) {
+                previous(mediaPlayer.isPlaying());
+            } else if (intent.getAction().equals("ACTION_NEXT")) {
+                next(mediaPlayer.isPlaying());
+            } else if (intent.getAction().equals("ACTION_PAUSE")) {
+                pause();
+            } else if (intent.getAction().equals("ACTION_PLAY")) {
+                play();
+            } else if (intent.getAction().equals("ACTION_STOP")) {
+                mediaPlayer.pause();
+                sendBufferingBroadcast("2");
+            }
+        }
+
+        return START_STICKY;
     }
 
     private void setupHandler() {
@@ -116,24 +145,22 @@ public class MediaPlayerService extends Service implements MediaPlayer.OnComplet
     private void LogMediaPosition() {
         if (mediaPlayer != null && mediaPlayer.isPlaying()) {
             mediaPosition = mediaPlayer.getCurrentPosition();
-            mediaMax = mediaPlayer.getDuration();
             seekIntent.putExtra("counter", String.valueOf(mediaPosition));
             sendBroadcast(seekIntent);
         }
     }
 
 
+
     @Override
     public IBinder onBind(Intent intent) {
-
-        Log.d("MediaPlayerSerivce", "onBind");
-        ItemDetailsWrapper wrap = (ItemDetailsWrapper) intent.getSerializableExtra("list");
         mediaPlayer = new MediaPlayer();
         mediaPlayer.setOnPreparedListener(this);
         mediaPlayer.setOnCompletionListener(this);
         mediaPlayer.setOnSeekCompleteListener(this);
         return MediaPlayerBinder;
     }
+
 
     private BroadcastReceiver headsetReceiver = new BroadcastReceiver() {
 
@@ -167,14 +194,19 @@ public class MediaPlayerService extends Service implements MediaPlayer.OnComplet
 
     public void play() {
         mediaPlayer.start();
+        sendBufferingBroadcast("5");
+        loadNotification(getImageUrl());
+
     }
 
     public void pause() {
-        sendBufferingBroadcast("2");
         mediaPlayer.pause();
+        sendBufferingBroadcast("2");
+        loadNotification(getImageUrl());
     }
 
     public void next(boolean play) {
+
         if (pos == (list.size() - 1)) {
             pos = 0;
         } else {
@@ -183,6 +215,8 @@ public class MediaPlayerService extends Service implements MediaPlayer.OnComplet
         loadPlayer();
         if (play) {
             play();
+        } else {
+            loadNotification(getImageUrl());
         }
 
     }
@@ -196,6 +230,8 @@ public class MediaPlayerService extends Service implements MediaPlayer.OnComplet
         loadPlayer();
         if (play) {
             play();
+        } else {
+            loadNotification(getImageUrl());
         }
 
     }
@@ -203,9 +239,6 @@ public class MediaPlayerService extends Service implements MediaPlayer.OnComplet
     public void loadPlayer() {
 
         if (mediaPlayer != null) {
-//            mediaPlayer.stop();
-//            mediaPlayer.release();
-//            mediaPlayer = null;
             mediaPlayer.reset();
         }
         sendBufferingBroadcast("1");
@@ -217,8 +250,6 @@ public class MediaPlayerService extends Service implements MediaPlayer.OnComplet
         } catch (IOException e) {
             e.printStackTrace();
         }
-
-
     }
 
     /**
@@ -258,16 +289,70 @@ public class MediaPlayerService extends Service implements MediaPlayer.OnComplet
         return list.get(pos).getName();
     }
 
-    public boolean isPreparded() {
-        return preparded;
-    }
-
     public String getImageUrl() {
         return list.get(pos).getImageUrl();
     }
 
     public String getPreviewUrl() {
         return list.get(pos).getPreviewUrl();
+    }
+
+    public void showNotification(Bitmap bitmap) {
+
+        if (Build.VERSION.SDK_INT >= 21) {
+
+
+
+
+
+            Notification.Action action;
+            if (mediaPlayer.isPlaying()) {
+                action = generateAction(android.R.drawable.ic_media_pause, "Pause", "ACTION_PAUSE");
+
+            } else {
+                action = generateAction(android.R.drawable.ic_media_play, "Play", "ACTION_PLAY");
+            }
+
+            Intent intent = new Intent( getApplicationContext(), MediaPlayerService.class );
+            intent.setAction( "ACTION_STOP" );
+            PendingIntent pendingIntent = PendingIntent.getService(getApplicationContext(), 1, intent, 0);
+
+            Notification notification = new Notification.Builder(this)
+                    .setVisibility(Notification.VISIBILITY_PUBLIC)
+                    .setSmallIcon(R.mipmap.ic_launcher)
+                    .setLargeIcon(bitmap)
+                    .addAction(generateAction(android.R.drawable.ic_media_previous, "Previous", "ACTION_PREVIOUS"))
+                    .addAction(action)
+                    .addAction(generateAction(android.R.drawable.ic_media_next, "Next", "ACTION_NEXT"))
+                    .setDeleteIntent(pendingIntent)
+                    .setStyle(new Notification.MediaStyle())
+                    .setContentTitle(list.get(pos).getName())
+                    .setContentText(list.get(pos).getArtist() + " - " + list.get(pos).getAlbum())
+                    .build();
+
+            NotificationManager notificationManager = (NotificationManager) this.getSystemService(Context.NOTIFICATION_SERVICE);
+            notificationManager.notify(NOTIFICATION_ID, notification);
+        }
+
+    }
+
+
+
+    public void loadNotification(String url) {
+        // I know that it was better to do this with Picasso, but I picasso have to run on main thread
+        new DownloadImageTask().execute(url);
+    }
+
+    private Notification.Action generateAction( int icon, String title, String intentAction ) {
+        if (Build.VERSION.SDK_INT >= 21) {
+            Intent intent = new Intent(getApplicationContext(), MediaPlayerService.class);
+            intent.setAction(intentAction);
+            PendingIntent pendingIntent = PendingIntent.getService(getApplicationContext(), 1, intent, 0);
+            return new Notification.Action.Builder(icon, title, pendingIntent).build();
+        } else {
+            return null;
+        }
+
     }
 
     @Override
@@ -290,6 +375,26 @@ public class MediaPlayerService extends Service implements MediaPlayer.OnComplet
     public class MyLocalBinder extends Binder {
         MediaPlayerService getService(){
             return MediaPlayerService.this;
+        }
+    }
+
+    private class DownloadImageTask extends AsyncTask<String, Void, Bitmap> {
+
+        protected Bitmap doInBackground(String... urls) {
+            String urldisplay = urls[0];
+            Bitmap mIcon11 = null;
+            try {
+                InputStream in = new java.net.URL(urldisplay).openStream();
+                mIcon11 = BitmapFactory.decodeStream(in);
+            } catch (Exception e) {
+                Log.e("Error", e.getMessage());
+                e.printStackTrace();
+            }
+            return mIcon11;
+        }
+
+        protected void onPostExecute(Bitmap result) {
+            showNotification(result);
         }
     }
 

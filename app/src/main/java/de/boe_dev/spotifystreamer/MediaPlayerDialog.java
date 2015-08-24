@@ -1,16 +1,19 @@
 package de.boe_dev.spotifystreamer;
 
+import android.app.Notification;
+import android.app.NotificationManager;
 import android.app.ProgressDialog;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
-import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.support.annotation.Nullable;
+import android.support.v4.app.DialogFragment;
 import android.support.v7.widget.Toolbar;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -33,7 +36,7 @@ import de.boe_dev.spotifystreamer.functions.ItemDetailsWrapper;
 /**
  * Created by ben on 10.08.15.
  */
-public class MediaPlayerDialog extends android.support.v4.app.DialogFragment {
+public class MediaPlayerDialog extends DialogFragment  {
 
     private Toolbar toolbar;
     private TextView album, track, playedTime, compleatTime;
@@ -54,8 +57,10 @@ public class MediaPlayerDialog extends android.support.v4.app.DialogFragment {
 
     public MediaPlayerDialog(Context context, ArrayList<TopTrackModel> list, int pos) {
         this.context = context;
-        this.list = list;
-        this.pos = pos;
+        if (list != null) {
+            this.list = list;
+            this.pos = pos;
+        }
     }
 
     @Override
@@ -101,22 +106,6 @@ public class MediaPlayerDialog extends android.support.v4.app.DialogFragment {
             context.unbindService(playerConnection);
             isBound = false;
         }
-
-//        if (mediaPlayerService.isPlaying() && Build.VERSION.SDK_INT >= 21) {
-//            Notification notification = new Notification.Builder(this)
-//                    .setVisibility(Notification.VISIBILITY_PUBLIC)
-//                    .setSmallIcon(R.mipmap.ic_launcher)
-//                    .addAction(android.R.drawable.ic_media_previous, "Previous", null) //TODO change this
-//                    .addAction(android.R.drawable.ic_media_pause, "Pause", null) //TODO change this
-//                    .addAction(android.R.drawable.ic_media_next, "Next", null) //TODO change this
-//                    .setStyle(new Notification.MediaStyle())
-//                    .setContentTitle(list.get(pos).getName())
-//                    .setContentText(list.get(pos).getArtist() + "\n" + list.get(pos).getAlbum())
-//                    .build();
-//
-//            NotificationManager notificationManager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
-//            notificationManager.notify(0, notification);
-
         super.onStop();
     }
 
@@ -135,6 +124,9 @@ public class MediaPlayerDialog extends android.support.v4.app.DialogFragment {
             pos = savedInstanceState.getInt("pos");
             play.setSelected(savedInstanceState.getBoolean("play"));
             fillView();
+            if (mediaPlayerService.isPlaying()) {
+
+            }
 
         }
 
@@ -164,12 +156,18 @@ public class MediaPlayerDialog extends android.support.v4.app.DialogFragment {
 
 
     private void setupPlayer() {
-        new Thread() {
-            @Override
-            public void run() {
-                mediaPlayerService.setupPlayer(list, pos);
-            }
-        }.start();
+
+        if (list != null) {
+            new Thread() {
+                @Override
+                public void run() {
+                    mediaPlayerService.setupPlayer(list, pos);
+                }
+            }.start();
+        } else {
+            fillView();
+        }
+
     }
 
 
@@ -227,10 +225,9 @@ public class MediaPlayerDialog extends android.support.v4.app.DialogFragment {
         play.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
             @Override
             public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-                if (isChecked) {
+                if (isChecked && !mediaPlayerService.isPlaying()) {
                     mediaPlayerService.play();
-                    // seekBarAction();
-                } else {
+                } else if (!isChecked && mediaPlayerService.isPlaying()) {
                     mediaPlayerService.pause();
                 }
             }
@@ -244,25 +241,19 @@ public class MediaPlayerDialog extends android.support.v4.app.DialogFragment {
                     @Override
                     public void run() {
                         mediaPlayerService.previous(play.isChecked());
-                        if (play.isChecked()) {
-                            // seekBarAction();
-                        }
                     }
                 }.start();
             }
         });
 
         next.setOnClickListener(new View.OnClickListener() {
+            
             @Override
             public void onClick(View v) {
-
                 new Thread() {
                     @Override
                     public void run() {
                         mediaPlayerService.next(play.isChecked());
-                        if (play.isChecked()) {
-                            // seekBarAction();
-                        }
                     }
                 }.start();
             }
@@ -275,7 +266,7 @@ public class MediaPlayerDialog extends android.support.v4.app.DialogFragment {
             getDialog().setTitle(mediaPlayerService.getArtist());
             album.setText(mediaPlayerService.getAlbum());
             track.setText(mediaPlayerService.getName());
-            seekBar.setProgress(0);
+            seekBar.setProgress((mediaPlayerService.getCurrentPosition() / 1000));
             if (!mediaPlayerService.getImageUrl().equals("")) {
                 Picasso.with(context).load(mediaPlayerService.getImageUrl()).into(cover);
             } else {
@@ -286,8 +277,11 @@ public class MediaPlayerDialog extends android.support.v4.app.DialogFragment {
             playedTime.setText(secondsToString((mediaPlayerService.getCurrentPosition() / 1000)));
             playTime = (mediaPlayerService.getDuration() / 1000);
             compleatTime.setText(secondsToString(playTime));
-        } else {
-            Log.d("MediaPlayerDialog", mediaPlayerService.getArtist());
+            if (mediaPlayerService.isPlaying()) {
+                play.setChecked(true);
+            } else {
+                play.setChecked(false);
+            }
         }
     }
 
@@ -366,6 +360,10 @@ public class MediaPlayerDialog extends android.support.v4.app.DialogFragment {
             case 4:
                 playedTime.setText(secondsToString((mediaPlayerService.getCurrentPosition() / 1000)));
                 break;
+
+            case 5:
+                play.setChecked(true);
+                break;
         }
 
     }
@@ -386,7 +384,5 @@ public class MediaPlayerDialog extends android.support.v4.app.DialogFragment {
             playedTime.setText(secondsToString((seekIntVallue / 1000)));
         }
     };
-
-
 
 }
