@@ -9,6 +9,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.SharedPreferences;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.drawable.Drawable;
@@ -299,11 +300,7 @@ public class MediaPlayerService extends Service implements MediaPlayer.OnComplet
 
     public void showNotification(Bitmap bitmap) {
 
-        if (Build.VERSION.SDK_INT >= 21) {
-
-
-
-
+        if (Build.VERSION.SDK_INT >= 21 && SpotifyPreferences.getInstance(this).isNotification()) {
 
             Notification.Action action;
             if (mediaPlayer.isPlaying()) {

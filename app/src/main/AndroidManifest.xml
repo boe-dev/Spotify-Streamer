@@ -26,6 +26,8 @@
             </intent-filter>
         </activity>
 
+        <activity android:name=".SpotifyPreferencesActivity" />
+
         <activity android:name=".ArtistActivity" />
 
         <activity android:name=".TopTrackActivity"

@@ -47,15 +47,19 @@ public class TopTrackFragment extends Fragment {
 
         Bundle arguments = getArguments();
         if (arguments != null) {
-            new getArtistTopTracks().execute(arguments.getString("artistId"));
+
+            String countryValue;
+            if (!SpotifyPreferences.getInstance(getActivity()).isCountry_code()) {
+                 countryValue = Locale.getDefault().getCountry();
+            } else {
+                countryValue = SpotifyPreferences.getInstance(getActivity()).getCountryCodeString();
+            }
+
+            new getArtistTopTracks().execute(arguments.getString("artistId"), countryValue);
         }
         return rootView;
     }
 
-    @Override
-    public void onCreateOptionsMenu(Menu menu, MenuInflater inflater) {
-        inflater.inflate(R.menu.media_player_menu, menu);
-    }
 
     public class getArtistTopTracks extends AsyncTask<String, Void , Tracks> {
 
@@ -65,8 +69,7 @@ public class TopTrackFragment extends Fragment {
                 Map<String, Object> options = new HashMap<>();
 
                 try {
-                    options.put(SpotifyService.COUNTRY, Locale.getDefault().getCountry());
-
+                    options.put(SpotifyService.COUNTRY, params[1]);
                     return new SpotifyApi().getService().getArtistTopTrack(params[0], options);
                 } catch (NullPointerException e) {
                     Log.e(getClass().getName(), e.toString());

@@ -6,4 +6,16 @@
     <string name="no_tracks_found">No tracks found</string>
     <string name="no_connection">No connection</string>
     <string name="top_10_tracks">Top 10 Tracks</string>
+    <string name="notification">notification</string>
+    <string name="app_notification">Notification Settings</string>
+    <string name="app_notification_description_on">The Notifications for this app are enabled</string>
+    <string name="app_notification_description_off">The Notifications for this app are disabled</string>
+    <string name="country_code">country_code</string>
+    <string name="own_country_code">own_country_code</string>
+    <string name="country_code_setting">Country-Code Settings</string>
+    <string name="country_code_setting_description_on">Use own Country-Code</string>
+    <string name="country_code_setting_description_off">Get Country-Code automatic</string>
+    <string name="country_code_setting_description_own">Your Country-Code</string>
+    <string name="settings">Settings</string>
+
 </resources>

@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <PreferenceCategory android:title="@string/app_notification">
+        <CheckBoxPreference
+            android:key="@string/notification"
+            android:summaryOn="@string/app_notification_description_on"
+            android:summaryOff="@string/app_notification_description_off"
+            android:defaultValue="true"/>
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="@string/country_code_setting" >
+        <CheckBoxPreference
+            android:key="@string/country_code"
+            android:summaryOn="@string/country_code_setting_description_on"
+            android:summaryOff="@string/country_code_setting_description_off"
+            android:defaultValue="false" />
+        <EditTextPreference
+            android:dependency="@string/country_code"
+            android:key="@string/own_country_code"
+            android:inputType="text"
+            android:summary="@string/country_code_setting_description_own"
+            />
+    </PreferenceCategory>
+</PreferenceScreen>
